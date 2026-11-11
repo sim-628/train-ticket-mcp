@@ -53,7 +53,7 @@ Set each secret's value to a Firecrawl API key. The five values are independent 
 
 Copy the store ID and replace each `REPLACE_WITH_STORE_ID` in `wrangler.jsonc` with the same store ID. Do not put any API key values in this repository, Wrangler vars, or source code.
 
-A slot can be left unused by creating its secret with an empty value if the dashboard permits it; otherwise create/populate that slot when you have another key. The Worker skips empty/unavailable slots.
+All five secret names must exist because all five bindings are declared in Wrangler. For an unused slot, set its value to the literal `DISABLED`; the Worker skips that slot. Replace `DISABLED` with a real Firecrawl key whenever you want to activate it.
 
 ### 3. Set the MCP access token
 
