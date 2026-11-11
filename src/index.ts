@@ -38,7 +38,8 @@ async function queryTrains(
     cached_at: number; result: TrainQueryResult;
   }>(cacheKey, "json");
   if (cached && now - cached.cached_at < CACHE_TTL_SECONDS * 1000) {
-    return { ...cached.result, cache: {
+    const { source: _source, ...rest } = cached.result as TrainQueryResult & { source?: unknown };
+    return { ...rest, cache: {
       hit: true, age_seconds: Math.max(0, Math.floor((now - cached.cached_at) / 1000))
     } };
   }
@@ -54,12 +55,10 @@ async function queryTrains(
   if (!parsed.is_complete) {
     throw new Error(`TRAIN_PARSE_INCOMPLETE: expected ${parsed.expected_count ?? "unknown"} trains, parsed ${parsed.parsed_count}; result was not cached`);
   }
-  const fetchedAt = new Date().toISOString();
   const result: TrainQueryResult = {
     success: true, query: { departure, arrival, date },
     expected_count: parsed.expected_count, parsed_count: parsed.parsed_count,
     is_complete: parsed.is_complete, trains: parsed.trains,
-    source: { provider: "qunar", url, fetched_at: fetchedAt },
     cache: { hit: false, age_seconds: 0 }
   };
   await env.TRAIN_CACHE.put(cacheKey, JSON.stringify({ cached_at: now, result }), {
@@ -73,7 +72,7 @@ function createMcpServer(env: Env): McpServer {
   server.registerTool(
     "search_train_tickets",
     {
-      description: "查询指定日期中国火车直达车次。输入出发车站、到达车站和日期，返回车次、出发到达时间、运行时长、票价、席别和页面余票状态。数据来自去哪儿网页抓取，库存可能变化，不代表锁定或可保证购买。",
+      description: "查询指定日期中国火车直达车次。输入出发车站、到达车站和日期，返回车次、出发到达时间、运行时长、票价、席别和页面余票状态。库存可能变化，不代表锁定或可保证购买。",
       inputSchema: z.object({
         departure: z.string().min(1).max(24).describe("出发车站，例如杭州东"),
         arrival: z.string().min(1).max(24).describe("到达车站，例如北京南"),

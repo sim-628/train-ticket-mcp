@@ -49,11 +49,6 @@ export interface TrainQueryResult {
   parsed_count: number;
   is_complete: boolean;
   trains: Train[];
-  source: {
-    provider: "qunar";
-    url: string;
-    fetched_at: string;
-  };
   cache: {
     hit: boolean;
     age_seconds: number;
