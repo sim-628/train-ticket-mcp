@@ -58,7 +58,8 @@ function keyBindings(env: Env): Array<SecretBinding | string | undefined> {
     env.FIRECRAWL_KEY_2,
     env.FIRECRAWL_KEY_3,
     env.FIRECRAWL_KEY_4,
-    env.FIRECRAWL_KEY_5
+    env.FIRECRAWL_KEY_5,
+    env.FIRECRAWL_KEY_6
   ];
 }
 
@@ -66,7 +67,7 @@ async function getStartSlot(env: Env): Promise<number> {
   try {
     const value = await env.TRAIN_CACHE.get(KEY_CURSOR_NAME);
     const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 0 && parsed < 5 ? parsed : 0;
+    return Number.isInteger(parsed) && parsed >= 0 && parsed < 6 ? parsed : 0;
   } catch {
     return 0;
   }
