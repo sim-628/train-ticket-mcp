@@ -1,7 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { pinyin } from "pinyin-pro";
-import { z } from "zod";
+import * as z from "zod/v4";
 import type { Env, SecretBinding, TrainQueryResult } from "./types";
 import { parseTrainMarkdown } from "./parser";
 
@@ -207,13 +206,15 @@ function createMcpServer(env: Env): McpServer {
     version: "1.0.0"
   });
 
-  server.tool(
+  server.registerTool(
     "search_train_tickets",
-    "查询指定日期中国火车直达车次。输入出发车站、到达车站和日期，返回车次、出发到达时间、运行时长、票价、席别和页面余票状态。数据来自去哪儿网页抓取，库存可能变化，不代表锁定或可保证购买。",
     {
-      departure: z.string().min(1).max(24).describe("出发车站，例如杭州东"),
-      arrival: z.string().min(1).max(24).describe("到达车站，例如北京南"),
-      date: z.string().describe("乘车日期，格式 YYYY-MM-DD")
+      description: "查询指定日期中国火车直达车次。输入出发车站、到达车站和日期，返回车次、出发到达时间、运行时长、票价、席别和页面余票状态。数据来自去哪儿网页抓取，库存可能变化，不代表锁定或可保证购买。",
+      inputSchema: z.object({
+        departure: z.string().min(1).max(24).describe("出发车站，例如杭州东"),
+        arrival: z.string().min(1).max(24).describe("到达车站，例如北京南"),
+        date: z.string().describe("乘车日期，格式 YYYY-MM-DD")
+      })
     },
     async ({ departure, arrival, date }) => {
       try {
@@ -273,12 +274,9 @@ export default {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const server = createMcpServer(env);
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined
-    });
-
-    await server.connect(transport);
-    return transport.handleRequest(request);
+    // The v2 SDK's web-standard handler is suitable for Cloudflare Workers.
+    // Its default legacy mode also accepts stateless 2025-era MCP clients.
+    const handler = createMcpHandler(() => createMcpServer(env));
+    return handler.fetch(request);
   }
 };
