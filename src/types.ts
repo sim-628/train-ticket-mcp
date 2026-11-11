@@ -5,11 +5,11 @@ export interface SecretBinding {
 export interface Env {
   TRAIN_CACHE: KVNamespace;
   MCP_ACCESS_TOKEN: string;
-  FIRECRAWL_KEY_1: SecretBinding;
-  FIRECRAWL_KEY_2: SecretBinding;
-  FIRECRAWL_KEY_3: SecretBinding;
-  FIRECRAWL_KEY_4: SecretBinding;
-  FIRECRAWL_KEY_5: SecretBinding;
+  FIRECRAWL_KEY_1: SecretBinding | string;
+  FIRECRAWL_KEY_2: SecretBinding | string;
+  FIRECRAWL_KEY_3: SecretBinding | string;
+  FIRECRAWL_KEY_4: SecretBinding | string;
+  FIRECRAWL_KEY_5: SecretBinding | string;
 }
 
 export interface SeatOption {
