@@ -119,7 +119,8 @@ Each key can be rotated in place in Secrets Store without changing the binding n
 ## Notes and limitations
 
 - The station slug is generated from Chinese station names using Pinyin. Verify uncommon station names against Qunar's route URL format.
-- Parser completeness compares the page's declared direct-train count with the number of parsed records. If Qunar changes its Markdown layout, parsing fails closed instead of returning a silently partial list.
+- Parser completeness compares the page's declared direct-train count with the number of parsed records. It supports alphabetic and numeric-only train numbers (e.g. G50 and 1462), plus hour-only duration strings (e.g. 6时). If Qunar changes its Markdown layout, parsing fails closed instead of returning a silently partial list.
+- Live Firecrawl regression samples checked: Hangzhou East–Beijing South on 2026-11-21 (28/28), 2026-11-22 (29/29), 2026-11-23 (28/28); Shanghai Hongqiao–Beijing South on 2026-11-21 (54/54) after the parser edge-case fix. Each scrape returned HTTP 200 and used 1 credit.
 - The first version parses direct trains. Transfer itineraries are not included.
 - Qunar page data is a snapshot, not a booking or inventory guarantee. Verify terms and permissions for automated access and commercial reuse before production use.
 - The `/health` endpoint is public and reveals no secrets. The `/mcp` endpoint requires the bearer token.
