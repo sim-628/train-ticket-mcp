@@ -50,7 +50,7 @@ Create one store, then create six secrets in that store with these exact names. 
 - `FIRECRAWL_KEY_5`
 - `FIRECRAWL_KEY_6`
 
-Set each secret's value to a Firecrawl API key. The five values are independent and can be edited/rotated independently later.
+The six secret slots have already been created and activated with the placeholder value `DISABLED`. Open each secret and replace `DISABLED` with the corresponding real Firecrawl API key. The six values are independent and can be edited/rotated independently later.
 
 Copy the store ID and replace each `REPLACE_WITH_STORE_ID` in `wrangler.jsonc` with the same store ID. Do not put any API key values in this repository, Wrangler vars, or source code.
 
