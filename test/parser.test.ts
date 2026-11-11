@@ -83,4 +83,37 @@ describe("parseTrainMarkdown", () => {
     expect(result.parsed_count).toBe(2);
     expect(result.trains.map((train) => train.price)).toEqual([638, 630]);
   });
+
+  it("supports numeric-only train numbers and hour-only durations", () => {
+    const markdown = `当前筛选结果： **1** 趟车次
+
+12:15
+
+上海
+
+6时
+
+[1462](https://huoche.qunar.com/train/timetable/1462)
+
+18:15
+
+北京丰台
+
+**¥152.5**
+
+硬座 **有票**硬卧 **候补**
+
+## 上海虹桥到北京南的中转方案
+`;
+    const result = parseTrainMarkdown(markdown, "2026-11-21");
+    expect(result.parsed_count).toBe(1);
+    expect(result.is_complete).toBe(true);
+    expect(result.trains[0]).toMatchObject({
+      train_number: "1462",
+      duration: "6时",
+      arrival_date: "2026-11-21",
+      price: 152.5
+    });
+  });
+
 });
