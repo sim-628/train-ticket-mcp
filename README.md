@@ -65,7 +65,7 @@ npx wrangler secret put MCP_ACCESS_TOKEN
 
 Paste the token when prompted. Keep it private; MCP clients must send it as `Authorization: Bearer <token>`.
 
-For local development only, copy `.env.example` to `.dev.vars` and fill the values. Never commit `.dev.vars`.
+For local development, put `MCP_ACCESS_TOKEN` in `.dev.vars`. Secrets Store production values are not automatically available to local Wrangler sessions; use Wrangler's local Secrets Store commands or temporary local test bindings for Firecrawl keys. Never commit `.dev.vars` or any real key values.
 
 ### 4. Install and deploy
 
