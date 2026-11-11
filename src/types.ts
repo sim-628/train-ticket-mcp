@@ -1,3 +1,9 @@
+export interface KVNamespace {
+  get<T = unknown>(key: string, type: "json"): Promise<T | null>;
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+}
+
 export interface SecretBinding {
   get(): Promise<string>;
 }
@@ -10,6 +16,7 @@ export interface Env {
   FIRECRAWL_KEY_3: SecretBinding | string;
   FIRECRAWL_KEY_4: SecretBinding | string;
   FIRECRAWL_KEY_5: SecretBinding | string;
+  FIRECRAWL_KEY_6: SecretBinding | string;
 }
 
 export interface SeatOption {
