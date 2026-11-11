@@ -1,6 +1,6 @@
 import type { Train, SeatOption } from "./types";
 
-const TRAIN_LINK = /^\[([A-Z]\d{1,5})\]\(https:\/\/huoche\.qunar\.com\/train\/timetable\/[^)]+\)$/;
+const TRAIN_LINK = /^\[([A-Z]?\d{1,5})\]\(https:\/\/huoche\.qunar\.com\/train\/timetable\/[^)]+\)$/;
 const RECOMMENDATION_TAGS = new Set(["最短耗时", "最低价格", "最多人买", "最优方案"]);
 
 function cleanLine(value: string): string {
@@ -102,7 +102,7 @@ export function parseTrainMarkdown(
     const departureTime = cleanLine(coreBefore[0]);
     const departureStation = cleanLine(coreBefore[1]);
     const duration = cleanLine(coreBefore[2]);
-    if (!isTime(departureTime) || !/^\d+时\d+分$/.test(duration)) continue;
+    if (!isTime(departureTime) || !/^\d+时(?:\d+分)?$/.test(duration)) continue;
 
     const possibleTag = preceding.length >= 4
       ? cleanLine(preceding[preceding.length - 4])
