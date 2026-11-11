@@ -6,7 +6,7 @@ A stateless MCP server on Cloudflare Workers. It accepts only departure station,
 
 - MCP Streamable HTTP endpoint: `POST /mcp`
 - Tool: `search_train_tickets(departure, arrival, date)`
-- Five independent Firecrawl API key slots.
+- Six independent Firecrawl API key slots.
 - On HTTP 401 only, automatically tries the next configured key.
 - Remembers the last successful key slot in KV and tries it first next time.
 - Each key can be rotated independently in Cloudflare Secrets Store; no code change is needed.
@@ -20,7 +20,7 @@ A stateless MCP server on Cloudflare Workers. It accepts only departure station,
 ```
 Agent -> Cloudflare Worker (MCP)
       -> Workers KV (query cache + last successful key slot)
-      -> Firecrawl API (one of five Secrets Store keys)
+      -> Firecrawl API (one of six Secrets Store keys)
       -> Markdown parser + completeness check
       -> normalized JSON -> Agent
 ```
@@ -37,17 +37,18 @@ npx wrangler kv namespace create TRAIN_CACHE
 
 Copy the returned namespace ID into `wrangler.jsonc`, replacing `REPLACE_WITH_KV_NAMESPACE_ID`.
 
-### 2. Create a Secrets Store and five secrets
+### 2. Create a Secrets Store and six secrets
 
 In Cloudflare Dashboard, open **Workers & Pages / Secrets Store** (the account-level Secrets Store area).
 
-Create one store, then create five secrets in that store with these exact names:
+Create one store, then create six secrets in that store with these exact names:
 
 - `FIRECRAWL_KEY_1`
 - `FIRECRAWL_KEY_2`
 - `FIRECRAWL_KEY_3`
 - `FIRECRAWL_KEY_4`
 - `FIRECRAWL_KEY_5`
+- `FIRECRAWL_KEY_6`
 
 Set each secret's value to a Firecrawl API key. The five values are independent and can be edited/rotated independently later.
 
@@ -76,7 +77,7 @@ npm test
 npm run deploy
 ```
 
-The deployment will require the KV namespace ID, Secrets Store ID, all five named Secrets Store secrets, and `MCP_ACCESS_TOKEN` to be configured.
+The deployment will require the KV namespace ID, Secrets Store ID, all six named Secrets Store secrets, and `MCP_ACCESS_TOKEN` to be configured.
 
 ## MCP connection
 
@@ -98,10 +99,10 @@ Tool input:
 
 The Worker starts with the last successful slot stored in KV (slot 1 if no slot has succeeded yet). For each request:
 
-1. Read the five secrets from Secrets Store.
+1. Read the six secrets from Secrets Store.
 2. Skip empty/unavailable slots.
 3. Call Firecrawl with the current key.
-4. If Firecrawl returns **401**, try the next slot, wrapping from slot 5 to slot 1.
+4. If Firecrawl returns **401**, try the next slot, wrapping from slot 6 to slot 1.
 5. On success, save that slot as the preferred slot for the next request.
 6. For **403, 429, 5xx, network errors or timeout**, stop and return an error. These are not treated as invalid credentials.
 7. If every configured key returns 401, return `FIRECRAWL_ALL_KEYS_UNAUTHORIZED`.
