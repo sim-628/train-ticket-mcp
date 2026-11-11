@@ -16,12 +16,12 @@
   // Replace STORE_ID with that store's ID. Each secret value can be
   // rotated independently in the Cloudflare dashboard without code changes.
   "secrets_store_secrets": [
-    { "binding": "FIRECRAWL_KEY_1", "store_id": "REPLACE_WITH_STORE_ID", "secret_name": "FIRECRAWL_KEY_1" },
-    { "binding": "FIRECRAWL_KEY_2", "store_id": "REPLACE_WITH_STORE_ID", "secret_name": "FIRECRAWL_KEY_2" },
-    { "binding": "FIRECRAWL_KEY_3", "store_id": "REPLACE_WITH_STORE_ID", "secret_name": "FIRECRAWL_KEY_3" },
-    { "binding": "FIRECRAWL_KEY_4", "store_id": "REPLACE_WITH_STORE_ID", "secret_name": "FIRECRAWL_KEY_4" },
-    { "binding": "FIRECRAWL_KEY_5", "store_id": "REPLACE_WITH_STORE_ID", "secret_name": "FIRECRAWL_KEY_5" },
-    { "binding": "FIRECRAWL_KEY_6", "store_id": "REPLACE_WITH_STORE_ID", "secret_name": "FIRECRAWL_KEY_6" }
+    { "binding": "FIRECRAWL_KEY_1", "store_id": "5a4e63527a774cebb1885775e8228160", "secret_name": "FIRECRAWL_KEY_1" },
+    { "binding": "FIRECRAWL_KEY_2", "store_id": "5a4e63527a774cebb1885775e8228160", "secret_name": "FIRECRAWL_KEY_2" },
+    { "binding": "FIRECRAWL_KEY_3", "store_id": "5a4e63527a774cebb1885775e8228160", "secret_name": "FIRECRAWL_KEY_3" },
+    { "binding": "FIRECRAWL_KEY_4", "store_id": "5a4e63527a774cebb1885775e8228160", "secret_name": "FIRECRAWL_KEY_4" },
+    { "binding": "FIRECRAWL_KEY_5", "store_id": "5a4e63527a774cebb1885775e8228160", "secret_name": "FIRECRAWL_KEY_5" },
+    { "binding": "FIRECRAWL_KEY_6", "store_id": "5a4e63527a774cebb1885775e8228160", "secret_name": "FIRECRAWL_KEY_6" }
   ],
 
   "observability": {
