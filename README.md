@@ -41,7 +41,7 @@ Copy the returned namespace ID into `wrangler.jsonc`, replacing `REPLACE_WITH_KV
 
 In Cloudflare Dashboard, open **Workers & Pages / Secrets Store** (the account-level Secrets Store area).
 
-Create one store, then create six secrets in that store with these exact names:
+Create one store, then create six secrets in that store with these exact names. Copy its Store ID into all six `store_id` fields in `wrangler.jsonc` (the current repository file still contains a placeholder until you provide the Store ID):
 
 - `FIRECRAWL_KEY_1`
 - `FIRECRAWL_KEY_2`
