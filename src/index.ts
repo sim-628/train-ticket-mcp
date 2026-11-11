@@ -1,12 +1,13 @@
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { pinyin } from "pinyin-pro";
 import * as z from "zod/v4";
-import type { Env, SecretBinding, TrainQueryResult } from "./types";
+import type { Env, TrainQueryResult } from "./types";
 import { parseTrainMarkdown } from "./parser";
+import { scrapeWithKeyFailover } from "./firecrawl";
+import { isValidDate, queryFlights } from "./flights";
 
 const CACHE_TTL_SECONDS = 300;
-const KEY_CURSOR_NAME = "firecrawl:key-cursor";
-const FIRECRAWL_URL = "https://api.firecrawl.dev/v2/scrape";
+const VERSION = "1.1.0";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -15,198 +16,60 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function isValidDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
 function stationSlug(station: string): string {
   const normalized = station.trim();
   if (!normalized || normalized.length > 24) {
     throw new Error("INVALID_STATION: station must contain 1-24 characters");
   }
-
-  // Qunar route slugs use concatenated pinyin for standard Chinese station names.
   const slug = pinyin(normalized, { toneType: "none", type: "array" })
-    .join("")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-
+    .join("").toLowerCase().replace(/[^a-z0-9]/g, "");
   if (!slug) throw new Error("INVALID_STATION: unable to convert station to route slug");
   return slug;
 }
 
-function buildQunarUrl(departure: string, arrival: string, date: string): string {
-  const from = stationSlug(departure);
-  const to = stationSlug(arrival);
-  return `https://huoche.qunar.com/train/tickets/${from}-to-${to}/${date}`;
-}
-
-async function readKey(binding: SecretBinding | string | undefined): Promise<string> {
-  const value = typeof binding === "string"
-    ? binding.trim()
-    : binding && typeof binding.get === "function"
-      ? (await binding.get()).trim()
-      : "";
-  return value.toUpperCase() === "DISABLED" ? "" : value;
-}
-
-function keyBindings(env: Env): Array<SecretBinding | string | undefined> {
-  return [
-    env.FIRECRAWL_KEY_1,
-    env.FIRECRAWL_KEY_2,
-    env.FIRECRAWL_KEY_3,
-    env.FIRECRAWL_KEY_4,
-    env.FIRECRAWL_KEY_5,
-    env.FIRECRAWL_KEY_6
-  ];
-}
-
-async function getStartSlot(env: Env): Promise<number> {
-  try {
-    const value = await env.TRAIN_CACHE.get(KEY_CURSOR_NAME);
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 0 && parsed < 6 ? parsed : 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function fetchWithKeyFailover(url: string, env: Env): Promise<string> {
-  const bindings = keyBindings(env);
-  const startSlot = await getStartSlot(env);
-  let configuredCount = 0;
-  const unauthorizedSlots: number[] = [];
-
-  for (let offset = 0; offset < bindings.length; offset++) {
-    const slot = (startSlot + offset) % bindings.length;
-    const apiKey = await readKey(bindings[slot]);
-    if (!apiKey) continue;
-    configuredCount++;
-
-    const response = await fetch(FIRECRAWL_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        url,
-        formats: ["markdown"],
-        onlyMainContent: true,
-        maxAge: 0
-      }),
-      signal: AbortSignal.timeout(60_000)
-    });
-
-    if (response.status === 401) {
-      unauthorizedSlots.push(slot + 1);
-      continue;
-    }
-
-    if (!response.ok) {
-      // Only 401 triggers key rotation. 403, 429, timeouts and 5xx are
-      // surfaced as service errors rather than incorrectly burning other keys.
-      const detail = (await response.text()).slice(0, 500);
-      throw new Error(`FIRECRAWL_HTTP_${response.status}: ${detail || "Firecrawl request failed"}`);
-    }
-
-    const payload = await response.json() as {
-      success?: boolean;
-      data?: { markdown?: string };
-    };
-
-    const markdown = payload.data?.markdown;
-    if (!payload.success || typeof markdown !== "string" || markdown.length === 0) {
-      throw new Error("FIRECRAWL_EMPTY_MARKDOWN: response did not contain Markdown");
-    }
-
-    // Remember the last successful slot so it is tried first next time.
-    await env.TRAIN_CACHE.put(KEY_CURSOR_NAME, String(slot));
-    return markdown;
-  }
-
-  if (configuredCount === 0) {
-    throw new Error("FIRECRAWL_KEYS_NOT_CONFIGURED: add at least one of the five Firecrawl secrets");
-  }
-
-  throw new Error(
-    `FIRECRAWL_ALL_KEYS_UNAUTHORIZED: all ${configuredCount} configured key(s) returned 401; slots=${unauthorizedSlots.join(",")}`
-  );
-}
-
 async function queryTrains(
-  departure: string,
-  arrival: string,
-  date: string,
-  env: Env
+  departure: string, arrival: string, date: string, env: Env
 ): Promise<TrainQueryResult> {
   const departureSlug = stationSlug(departure);
   const arrivalSlug = stationSlug(arrival);
   const cacheKey = `train:v1:${departureSlug}:${arrivalSlug}:${date}`;
   const now = Date.now();
-
   const cached = await env.TRAIN_CACHE.get<{
-    cached_at: number;
-    result: TrainQueryResult;
+    cached_at: number; result: TrainQueryResult;
   }>(cacheKey, "json");
-
   if (cached && now - cached.cached_at < CACHE_TTL_SECONDS * 1000) {
-    return {
-      ...cached.result,
-      cache: {
-        hit: true,
-        age_seconds: Math.max(0, Math.floor((now - cached.cached_at) / 1000))
-      }
-    };
+    return { ...cached.result, cache: {
+      hit: true, age_seconds: Math.max(0, Math.floor((now - cached.cached_at) / 1000))
+    } };
   }
-
-  const url = buildQunarUrl(departure, arrival, date);
-  const markdown = await fetchWithKeyFailover(url, env);
-  const parsed = parseTrainMarkdown(markdown, date);
-
+  const url = `https://huoche.qunar.com/train/tickets/${departureSlug}-to-${arrivalSlug}/${date}`;
+  const doc = await scrapeWithKeyFailover(url, env);
+  if (typeof doc.markdown !== "string" || doc.markdown.length === 0) {
+    throw new Error("FIRECRAWL_EMPTY_MARKDOWN");
+  }
+  const parsed = parseTrainMarkdown(doc.markdown, date);
   if (parsed.parsed_count === 0) {
     throw new Error("TRAIN_PARSE_EMPTY: no direct trains could be parsed; page structure may have changed");
   }
-
   if (!parsed.is_complete) {
-    throw new Error(
-      `TRAIN_PARSE_INCOMPLETE: expected ${parsed.expected_count ?? "unknown"} trains, parsed ${parsed.parsed_count}; result was not cached`
-    );
+    throw new Error(`TRAIN_PARSE_INCOMPLETE: expected ${parsed.expected_count ?? "unknown"} trains, parsed ${parsed.parsed_count}; result was not cached`);
   }
-
   const fetchedAt = new Date().toISOString();
   const result: TrainQueryResult = {
-    success: true,
-    query: { departure, arrival, date },
-    expected_count: parsed.expected_count,
-    parsed_count: parsed.parsed_count,
-    is_complete: parsed.is_complete,
-    trains: parsed.trains,
-    source: {
-      provider: "qunar",
-      url,
-      fetched_at: fetchedAt
-    },
+    success: true, query: { departure, arrival, date },
+    expected_count: parsed.expected_count, parsed_count: parsed.parsed_count,
+    is_complete: parsed.is_complete, trains: parsed.trains,
+    source: { provider: "qunar", url, fetched_at: fetchedAt },
     cache: { hit: false, age_seconds: 0 }
   };
-
-  await env.TRAIN_CACHE.put(
-    cacheKey,
-    JSON.stringify({ cached_at: now, result }),
-    { expirationTtl: CACHE_TTL_SECONDS }
-  );
-
+  await env.TRAIN_CACHE.put(cacheKey, JSON.stringify({ cached_at: now, result }), {
+    expirationTtl: CACHE_TTL_SECONDS
+  });
   return result;
 }
 
 function createMcpServer(env: Env): McpServer {
-  const server = new McpServer({
-    name: "train-ticket-mcp",
-    version: "1.0.0"
-  });
-
+  const server = new McpServer({ name: "train-ticket-mcp", version: VERSION });
   server.registerTool(
     "search_train_tickets",
     {
@@ -219,27 +82,38 @@ function createMcpServer(env: Env): McpServer {
     },
     async ({ departure, arrival, date }) => {
       try {
-        if (!isValidDate(date)) {
-          throw new Error("INVALID_DATE: date must be a real calendar date in YYYY-MM-DD format");
-        }
-        if (departure.trim() === arrival.trim()) {
-          throw new Error("INVALID_ROUTE: departure and arrival must be different stations");
-        }
-
+        if (!isValidDate(date)) throw new Error("INVALID_DATE: date must be a real calendar date in YYYY-MM-DD format");
+        if (departure.trim() === arrival.trim()) throw new Error("INVALID_ROUTE: departure and arrival must be different stations");
         const result = await queryTrains(departure.trim(), arrival.trim(), date, env);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result) }]
-        };
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (error) {
         const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
-        return {
-          isError: true,
-          content: [{ type: "text", text: JSON.stringify({ success: false, error: message }) }]
-        };
+        return { isError: true, content: [{ type: "text", text: JSON.stringify({ success: false, error: message }) }] };
       }
     }
   );
 
+  server.registerTool(
+    "search_flight_tickets",
+    {
+      description: "查询同程国内单程机票主列表。仅输入三字母城市代码 from_code、to_code 和 YYYY-MM-DD 日期；如 HGH→BJS、SHA→BJS，不要输入中文城市名。返回航班号、起降日期时间、实际机场/航站楼、页面展示价、票价文案和机型。BJS/SHA 等城市查询可包含多个机场，须使用每条结果的实际机场。价格未核验含税、余票和可订性；不含中转及折叠共享航班。status=partial 时明确告知数据不完整；is_complete=null 表示未验证全部库存，不得声称是全部航班。",
+      inputSchema: z.object({
+        from_code: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).describe("出发城市三字码，例如 HGH（杭州）、SHA（上海）；不是中文城市名"),
+        to_code: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).describe("到达城市三字码，例如 BJS（北京）；返回的实际机场可能不止一个"),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("出发日期，YYYY-MM-DD")
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+    },
+    async ({ from_code, to_code, date }) => {
+      try {
+        const result = await queryFlights({ from_code, to_code, date }, env);
+        return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: { ...result } };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "FLIGHT_QUERY_FAILED";
+        return { isError: true, content: [{ type: "text", text: JSON.stringify({ success: false, error: message }) }] };
+      }
+    }
+  );
   return server;
 }
 
@@ -251,7 +125,6 @@ function isAuthorized(request: Request, env: Env): boolean {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -262,21 +135,11 @@ export default {
         }
       });
     }
-
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "train-ticket-mcp", version: "1.0.0" });
+      return json({ ok: true, service: "train-ticket-mcp", version: VERSION });
     }
-
-    if (url.pathname !== "/mcp") {
-      return json({ error: "Not found", mcp_endpoint: "/mcp" }, 404);
-    }
-
-    if (!isAuthorized(request, env)) {
-      return json({ error: "Unauthorized" }, 401);
-    }
-
-    // The v2 SDK's web-standard handler is suitable for Cloudflare Workers.
-    // Its default legacy mode also accepts stateless 2025-era MCP clients.
+    if (url.pathname !== "/mcp") return json({ error: "Not found", mcp_endpoint: "/mcp" }, 404);
+    if (!isAuthorized(request, env)) return json({ error: "Unauthorized" }, 401);
     const handler = createMcpHandler(() => createMcpServer(env));
     return handler.fetch(request);
   }
