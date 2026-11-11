@@ -72,22 +72,22 @@ export function parseTrainMarkdown(
     throw new Error("TRAIN_LIST_NOT_FOUND: missing current-filter section");
   }
 
-  const endMarker = "## 杭州东到北京南的中转方案";
-  const possibleEnd = markdown.indexOf(endMarker, start);
-  const end = possibleEnd >= 0 ? possibleEnd : markdown.length;
-  const section = markdown.slice(start, end);
+  // The route is dynamic; do not hard-code a particular origin/destination here.
+  const afterStart = markdown.slice(start);
+  const transferHeading = afterStart.search(/^## .+的中转方案\s*$/m);
+  const section = transferHeading >= 0
+    ? afterStart.slice(0, transferHeading)
+    : afterStart;
 
   const countMatch = section.match(/当前筛选结果：\s*\*\*(\d+)\*\*/);
   const expectedCount = countMatch ? Number(countMatch[1]) : null;
   const lines = section.split(/\r?\n/).map((line) => line.trim());
-
   const trains: Train[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const linkMatch = lines[i].match(TRAIN_LINK);
     if (!linkMatch) continue;
 
-    // Read the three non-empty content lines immediately before the train link.
     const before: string[] = [];
     for (let j = i - 1; j >= 0 && before.length < 5; j--) {
       const line = lines[j];
@@ -102,20 +102,17 @@ export function parseTrainMarkdown(
     const departureTime = cleanLine(coreBefore[0]);
     const departureStation = cleanLine(coreBefore[1]);
     const duration = cleanLine(coreBefore[2]);
-
     if (!isTime(departureTime) || !/^\d+时\d+分$/.test(duration)) continue;
 
-    const recommendationTag =
-      preceding.length >= 4 && RECOMMENDATION_TAGS.has(cleanLine(preceding[preceding.length - 4]))
-        ? cleanLine(preceding[preceding.length - 4])
-        : null;
+    const possibleTag = preceding.length >= 4
+      ? cleanLine(preceding[preceding.length - 4])
+      : "";
+    const recommendationTag = RECOMMENDATION_TAGS.has(possibleTag) ? possibleTag : null;
 
-    // Read arrival time, arrival station, fare and seat inventory after the train link.
     const after: string[] = [];
     for (let j = i + 1; j < lines.length && after.length < 4; j++) {
       if (lines[j]) after.push(lines[j]);
     }
-
     if (after.length < 4) continue;
 
     const arrivalTime = cleanLine(after[0]);
