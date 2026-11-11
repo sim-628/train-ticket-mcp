@@ -77,7 +77,7 @@ Each `flights[]` record includes:
 | `has_codeshare_options` | Whether this card displays `含共享`; does not identify the operating airline |
 | `remaining_seats`, `tax_included` | `null`: not established by the main listing |
 
-`source.fetched_at` is the time this service received the scrape, not a guarantee of the supplier's own update time; `source.page_updated_at` remains `null`. Cache hits preserve the original timestamp and expose `cache.age_seconds`.
+Cache hits expose `cache.age_seconds`. Tool results do not include a supplier name or page URL.
 
 ### Completeness is explicit, not assumed
 

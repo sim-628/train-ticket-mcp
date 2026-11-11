@@ -139,7 +139,7 @@ test('full query uses actions, writes separate flight cache, and skips upstream 
   };
   const a = await queryFlights(q, env), b = await queryFlights(q, env);
   assert.equal(a.cache.hit, false); assert.equal(b.cache.hit, true); assert.equal(calls, 1);
-  assert.equal(a.source.fetched_at, b.source.fetched_at);
+  assert.equal(a.source, undefined); assert.equal(b.source, undefined);
   assert.ok(env.data.has('flight:v1:tongcheng:HGH:BJS:2026-11-14'));
 });
 test('partial snapshots are never cached', async () => {

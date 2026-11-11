@@ -36,7 +36,6 @@ export interface FlightResult {
     all_observed_cards_parsed: boolean; all_inventory_verified: false;
   };
   warnings: string[];
-  source: { provider: "tongcheng"; url: string; fetched_at: string; page_updated_at: null };
   cache: { hit: boolean; age_seconds: number; ttl_seconds: number };
 }
 const TTL = 300;
@@ -165,7 +164,7 @@ function assertQueryUrl(value: string, query: FlightQuery): void {
   if (u.searchParams.get("fromCode") !== query.from_code || u.searchParams.get("toCode") !== query.to_code ||
     u.searchParams.get("date") !== query.date) throw new Error("FLIGHT_ROUTE_OR_DATE_MISMATCH");
 }
-export function normalizeFlightDocument(doc: ScrapeDocument, input: FlightQuery, fetchedAt: string): FlightResult {
+export function normalizeFlightDocument(doc: ScrapeDocument, input: FlightQuery): FlightResult {
   const query = validateFlightQuery(input);
   if (doc.metadata?.statusCode && doc.metadata.statusCode >= 400) throw new Error("FLIGHT_SOURCE_HTTP_ERROR");
   if (doc.metadata?.sourceURL) assertQueryUrl(doc.metadata.sourceURL, query);
@@ -216,7 +215,6 @@ export function normalizeFlightDocument(doc: ScrapeDocument, input: FlightQuery,
       observed_list_stable: stable, selected_date_matches: dateMatches,
       all_observed_cards_parsed: rejected === 0, all_inventory_verified: false },
     warnings: [...new Set(warnings)],
-    source: { provider: "tongcheng", url: buildTongchengUrl(query), fetched_at: fetchedAt, page_updated_at: null },
     cache: { hit: false, age_seconds: 0, ttl_seconds: TTL }
   };
 }
@@ -229,7 +227,8 @@ export async function queryFlights(input: FlightQuery, env: Env): Promise<Flight
     if (cached && age >= 0 && age < TTL * 1000 && cached.result?.status === "ok" &&
       cached.result.query.from_code === query.from_code && cached.result.query.to_code === query.to_code &&
       cached.result.query.date === query.date) {
-      return { ...cached.result, cache: { hit: true, age_seconds: Math.floor(age / 1000), ttl_seconds: TTL } };
+      const { source: _source, ...rest } = cached.result as FlightResult & { source?: unknown };
+      return { ...rest, cache: { hit: true, age_seconds: Math.floor(age / 1000), ttl_seconds: TTL } };
     }
   } catch { /* Cache outage is not a data-source failure. */ }
   const doc = await scrapeWithKeyFailover(buildTongchengUrl(query), env, {
@@ -237,7 +236,7 @@ export async function queryFlights(input: FlightQuery, env: Env): Promise<Flight
     actions: [{ type: "executeJavascript", script: FLIGHT_OBSERVATION_SCRIPT }]
   });
   const now = Date.now();
-  const result = normalizeFlightDocument(doc, query, new Date(now).toISOString());
+  const result = normalizeFlightDocument(doc, query);
   if (result.status === "ok") {
     try {
       await env.TRAIN_CACHE.put(key, JSON.stringify({ cached_at: now, result }), { expirationTtl: TTL });

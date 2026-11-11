@@ -95,7 +95,7 @@ function createMcpServer(env: Env): McpServer {
   server.registerTool(
     "search_flight_tickets",
     {
-      description: "查询同程国内单程机票主列表。仅输入三字母城市代码 from_code、to_code 和 YYYY-MM-DD 日期；如 HGH→BJS、SHA→BJS，不要输入中文城市名。返回航班号、起降日期时间、实际机场/航站楼、页面展示价、票价文案和机型。BJS/SHA 等城市查询可包含多个机场，须使用每条结果的实际机场。价格未核验含税、余票和可订性；不含中转及折叠共享航班。status=partial 时明确告知数据不完整；is_complete=null 表示未验证全部库存，不得声称是全部航班。",
+      description: "查询国内单程机票主列表。仅输入三字母城市代码 from_code、to_code 和 YYYY-MM-DD 日期；如 HGH→BJS、SHA→BJS，不要输入中文城市名。返回航班号、起降日期时间、实际机场/航站楼、页面展示价、票价文案和机型。BJS/SHA 等城市查询可包含多个机场，须使用每条结果的实际机场。价格未核验含税、余票和可订性；不含中转及折叠共享航班。status=partial 时明确告知数据不完整；is_complete=null 表示未验证全部库存，不得声称是全部航班。",
       inputSchema: z.object({
         from_code: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).describe("出发城市三字码，例如 HGH（杭州）、SHA（上海）；不是中文城市名"),
         to_code: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).describe("到达城市三字码，例如 BJS（北京）；返回的实际机场可能不止一个"),
