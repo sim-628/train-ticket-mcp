@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/server": "^2.0.0",
     "pinyin-pro": "^3.26.0",
-    "zod": "^3.25.0"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20261111.0",
