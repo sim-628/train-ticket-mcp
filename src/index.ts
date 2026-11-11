@@ -45,11 +45,12 @@ function buildQunarUrl(departure: string, arrival: string, date: string): string
 }
 
 async function readKey(binding: SecretBinding | string | undefined): Promise<string> {
-  if (typeof binding === "string") return binding.trim();
-  if (binding && typeof binding.get === "function") {
-    return (await binding.get()).trim();
-  }
-  return "";
+  const value = typeof binding === "string"
+    ? binding.trim()
+    : binding && typeof binding.get === "function"
+      ? (await binding.get()).trim()
+      : "";
+  return value.toUpperCase() === "DISABLED" ? "" : value;
 }
 
 function keyBindings(env: Env): Array<SecretBinding | string | undefined> {
