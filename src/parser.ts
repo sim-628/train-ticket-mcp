@@ -17,7 +17,8 @@ function durationToMinutes(duration: string): number | null {
   const days = Number(match[1] ?? 0);
   const hours = Number(match[2] ?? 0);
   const minutes = Number(match[3] ?? 0);
-  return days * 1440 + hours * 60 + minutes;
+  const total = days * 1440 + hours * 60 + minutes;
+  return Number.isSafeInteger(total) && total > 0 ? total : null;
 }
 
 function addDuration(date: string, departureTime: string, duration: string): string {
@@ -102,7 +103,9 @@ export function parseTrainMarkdown(
     const departureTime = cleanLine(coreBefore[0]);
     const departureStation = cleanLine(coreBefore[1]);
     const duration = cleanLine(coreBefore[2]);
-    if (!isTime(departureTime) || !/^\d+时(?:\d+分)?$/.test(duration)) continue;
+    // Use the same parser for validation and arrival-date calculation.
+    // Short journeys may be written as "23分", with no hour component.
+    if (!isTime(departureTime) || durationToMinutes(duration) === null) continue;
 
     const possibleTag = preceding.length >= 4
       ? cleanLine(preceding[preceding.length - 4])
