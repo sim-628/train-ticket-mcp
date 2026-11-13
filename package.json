@@ -7,8 +7,9 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && npm run test:flights",
-    "test:flights": "node scripts/test-flights.mjs"
+    "test": "vitest run && npm run test:flights && npm run test:trains",
+    "test:flights": "node scripts/test-flights.mjs",
+    "test:trains": "node --experimental-strip-types --test test/parser-duration.node.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
